@@ -15,29 +15,29 @@ export class StepsService {
   constructor(
     @InjectRepository(DailySteps)
     private readonly stepsRepository: Repository<DailySteps>,
+
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
     private readonly connectionsService: ConnectionsService,
   ) {}
-
-  /**
-   * Upsert today's step count for the authenticated user.
-   * Idempotent: repeated calls with the same (userId, date) overwrite
-   * the step_count rather than creating duplicate rows.
-   * The client sends the TOTAL step count for the day, not a delta.
-   */
+// saves and updates current user's steps 
   async syncSteps(userId: string, dto: SyncStepsDto) {
     const existing = await this.stepsRepository.findOne({
       where: { userId, date: dto.date },
     });
 
     if (existing) {
-      // Only update if incoming count is >= existing (monotonic for a given day)
+      // Only update if incoming step count is >= existing count
       if (dto.stepCount >= existing.stepCount) {
         existing.stepCount = dto.stepCount;
+        existing.isActive = dto.isActive ?? false;
+        existing.lastActiveAt = new Date();
+
         return this.stepsRepository.save(existing);
       }
-      // If client sends a lower count (e.g., stale cache), ignore silently
+
+      // Ignore stale/lower step count
       return existing;
     }
 
@@ -45,12 +45,13 @@ export class StepsService {
       userId,
       date: dto.date,
       stepCount: dto.stepCount,
+      isActive: dto.isActive ?? false,
+      lastActiveAt: new Date(),
     });
 
     return this.stepsRepository.save(record);
   }
-
-  /** Get own steps for today */
+// gets current users steps for a particular date 
   async getMySteps(userId: string, date: string) {
     const record = await this.stepsRepository.findOne({
       where: { userId, date },
@@ -62,33 +63,41 @@ export class StepsService {
       updatedAt: record?.updatedAt ?? null,
     };
   }
-
-  /**
-   * Get another user's steps.
-   * Authorization: caller must have an active connection AND target must have sharing enabled.
-   */
-  async getPeerSteps(callerId: string, targetUserId: string, date: string) {
+// get another users steps when another user is connected 
+  async getPeerSteps(
+    callerId: string,
+    targetUserId: string,
+    date: string,
+  ) {
     // 1. Verify active connection
     const connected = await this.connectionsService.hasActiveConnection(
       callerId,
       targetUserId,
     );
+
     if (!connected) {
-      throw new ForbiddenException('No active connection with this user');
+      throw new ForbiddenException(
+        'No active connection with this user',
+      );
     }
 
-    // 2. Verify target has sharing enabled
+    // 2. Verify target user exists
     const targetUser = await this.userRepository.findOne({
       where: { id: targetUserId },
     });
+
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
+
+    // 3. Verify step sharing is enabled
     if (!targetUser.sharingEnabled) {
-      throw new ForbiddenException('User has disabled step sharing');
+      throw new ForbiddenException(
+        'User has disabled step sharing',
+      );
     }
 
-    // 3. Return steps
+    // 4. Get steps
     const record = await this.stepsRepository.findOne({
       where: { userId: targetUserId, date },
     });

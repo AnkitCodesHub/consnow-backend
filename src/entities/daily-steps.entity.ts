@@ -33,4 +33,10 @@ export class DailySteps {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+// check whether user is walking or not 
+  @Column({ name: 'is_active', default: false })
+isActive: boolean;
+// gives the last active status 
+@Column({ name: 'last_active_at', type: 'timestamp', nullable: true })
+lastActiveAt: Date;
 }

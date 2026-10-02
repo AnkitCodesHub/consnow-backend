@@ -18,10 +18,13 @@ export class StepsController {
   constructor(private readonly stepsService: StepsService) {}
 
   /** Upsert step count for authenticated user */
-  @Put('sync')
-  async syncSteps(@Request() req: any, @Body() dto: SyncStepsDto) {
-    return this.stepsService.syncSteps(req.user.id, dto);
-  }
+@Put('sync')
+async syncSteps(@Request() req:any, @Body() body: SyncStepsDto) {
+  return this.stepsService.syncSteps(
+    req.user.id,
+    body,
+  );
+}
 
   /** Get own steps for a date (defaults to today) */
   @Get('me')

@@ -1,4 +1,5 @@
 import { IsInt, Min, IsDateString } from 'class-validator';
+import { IsOptional, IsBoolean } from 'class-validator';
 
 export class SyncStepsDto {
   @IsInt()
@@ -7,4 +8,8 @@ export class SyncStepsDto {
 
   @IsDateString()
   date: string; // YYYY-MM-DD
+// explain how the incoming data should look like 
+  @IsOptional()
+@IsBoolean()
+isActive?: boolean;
 }
