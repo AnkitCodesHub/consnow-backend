@@ -22,22 +22,20 @@ export class StepsService {
     private readonly connectionsService: ConnectionsService,
   ) {}
 // saves and updates current user's steps 
-  async syncSteps(userId: string, dto: SyncStepsDto) {
+async syncSteps(userId: string, dto: SyncStepsDto) {
     const existing = await this.stepsRepository.findOne({
       where: { userId, date: dto.date },
     });
 
     if (existing) {
-      // Only update if incoming step count is >= existing count
       if (dto.stepCount >= existing.stepCount) {
         existing.stepCount = dto.stepCount;
         existing.isActive = dto.isActive ?? false;
-        existing.lastActiveAt = new Date();
-
+        if (dto.isActive) {
+          existing.lastActiveAt = new Date();
+        }
         return this.stepsRepository.save(existing);
       }
-
-      // Ignore stale/lower step count
       return existing;
     }
 
@@ -46,8 +44,7 @@ export class StepsService {
       date: dto.date,
       stepCount: dto.stepCount,
       isActive: dto.isActive ?? false,
-      lastActiveAt: new Date(),
-      //  ...(dto.isActive ? { lastActiveAt: new Date() } : {}),
+      ...(dto.isActive ? { lastActiveAt: new Date() } : {}),
     });
 
     return this.stepsRepository.save(record);
