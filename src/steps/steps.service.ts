@@ -102,12 +102,14 @@ export class StepsService {
       where: { userId: targetUserId, date },
     });
 
-    return {
+ return {
       userId: targetUserId,
       userName: targetUser.name,
       date,
       stepCount: record?.stepCount ?? 0,
       updatedAt: record?.updatedAt ?? null,
+      isActive: record?.isActive ?? false,
+      lastActiveAt: record?.lastActiveAt ?? null,
     };
   }
 }

@@ -32,13 +32,15 @@ export class ConnectionsService {
     }
 
     // Check for existing connection in either direction (idempotency)
-    const existing = await this.connectionRepository
-      .createQueryBuilder('c')
-      .where(
+  const existing = await this.connectionRepository
+    .createQueryBuilder('c')
+    .leftJoinAndSelect('c.userA', 'userA')
+    .leftJoinAndSelect('c.userB', 'userB')
+    .where(
         '((c.user_a_id = :uid AND c.user_b_id = :tid) OR (c.user_a_id = :tid AND c.user_b_id = :uid))',
         { uid: currentUserId, tid: targetUser.id },
-      )
-      .getOne();
+    )
+    .getOne();
 
     if (existing) {
       if (existing.status === ConnectionStatus.ACTIVE) {
@@ -64,6 +66,7 @@ export class ConnectionsService {
     // Reload with relations
     const loaded = await this.connectionRepository.findOne({
       where: { id: saved.id },
+      relations: ['userA', 'userB'],
     });
     return this.formatConnection(loaded!, currentUserId);
   }

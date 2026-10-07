@@ -12,15 +12,22 @@ import { DailySteps } from './entities/daily-steps.entity';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'stepshare',
-      entities: [User, Connection, DailySteps],
-      synchronize: true, // Disable in production, use migrations
-    }),
+  type: 'postgres',
+  ...(process.env.DATABASE_URL
+    ? {
+        url: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        username: process.env.DB_USERNAME || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_NAME || 'stepshare',
+      }),
+  entities: [User, Connection, DailySteps],
+  synchronize: true,
+}),
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 1 minute
