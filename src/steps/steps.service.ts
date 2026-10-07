@@ -100,14 +100,18 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
       where: { userId: targetUserId, date },
     });
 
- return {
-      userId: targetUserId,
-      userName: targetUser.name,
-      date,
-      stepCount: record?.stepCount ?? 0,
-      updatedAt: record?.updatedAt ?? null,
-      isActive: record?.isActive ?? false,
-      lastActiveAt: record?.lastActiveAt ?? null,
-    };
+ // If no sync received in 5 minutes, force inactive
+const isStale = record?.updatedAt && 
+    (Date.now() - new Date(record.updatedAt).getTime() > 2 * 60 * 1000);
+
+return {
+    userId: targetUserId,
+    userName: targetUser.name,
+    date,
+    stepCount: record?.stepCount ?? 0,
+    updatedAt: record?.updatedAt ?? null,
+    isActive: isStale ? false : (record?.isActive ?? false),
+    lastActiveAt: record?.lastActiveAt ?? null,
+};
   }
 }
