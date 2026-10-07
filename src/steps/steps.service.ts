@@ -47,6 +47,7 @@ export class StepsService {
       stepCount: dto.stepCount,
       isActive: dto.isActive ?? false,
       lastActiveAt: new Date(),
+       ...(dto.isActive ? { lastActiveAt: new Date() } : {}),
     });
 
     return this.stepsRepository.save(record);
