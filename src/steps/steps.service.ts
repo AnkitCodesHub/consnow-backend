@@ -27,7 +27,7 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
       where: { userId, date: dto.date },
     });
 
-    if (existing) {
+    if (existing) { 
       if (dto.stepCount >= existing.stepCount) {
         existing.stepCount = dto.stepCount;
         existing.isActive = dto.isActive ?? false;
@@ -55,10 +55,12 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
       where: { userId, date },
     });
 
-    return {
+      return {
       date,
       stepCount: record?.stepCount ?? 0,
       updatedAt: record?.updatedAt ?? null,
+      isActive: record?.isActive ?? false,
+      lastActiveAt: record?.lastActiveAt ?? null,
     };
   }
 // get another users steps when another user is connected 
