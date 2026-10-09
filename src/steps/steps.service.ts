@@ -114,6 +114,12 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
 const isStale = record?.updatedAt && 
     (Date.now() - new Date(record.updatedAt).getTime() > 2 * 60 * 1000);
 
+    const lastActiveAt = record?.lastActiveAt
+    ?? (await this.stepsRepository.findOne({
+        where: { userId: targetUserId, lastActiveAt: Not(IsNull()) },
+        order: { lastActiveAt: 'DESC' }
+    }))?.lastActiveAt
+    ?? null;
 return {
     userId: targetUserId,
     userName: targetUser.name,
@@ -121,7 +127,7 @@ return {
     stepCount: record?.stepCount ?? 0,
     updatedAt: record?.updatedAt ?? null,
     isActive: isStale ? false : (record?.isActive ?? false),
-    lastActiveAt: record?.lastActiveAt ?? null,
+    lastActiveAt,
 };
   }
 }
