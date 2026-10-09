@@ -9,6 +9,7 @@ import { DailySteps } from '../entities/daily-steps.entity';
 import { User } from '../entities/user.entity';
 import { ConnectionsService } from '../connections/connections.service';
 import { SyncStepsDto } from './dto/sync-steps.dto';
+import {Not, IsNull } from 'typeorm';
 
 @Injectable()
 export class StepsService {
@@ -54,13 +55,20 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
     const record = await this.stepsRepository.findOne({
       where: { userId, date },
     });
+     // If today has no record yet, fetch most recent record across all dates
+  const lastActiveAt = record?.lastActiveAt
+    ?? (await this.stepsRepository.findOne({
+        where: { userId, lastActiveAt: Not(IsNull()) },
+        order: { lastActiveAt: 'DESC' }
+      }))?.lastActiveAt
+    ?? null;
 
       return {
       date,
       stepCount: record?.stepCount ?? 0,
       updatedAt: record?.updatedAt ?? null,
       isActive: record?.isActive ?? false,
-      lastActiveAt: record?.lastActiveAt ?? null,
+      lastActiveAt,
     };
   }
 // get another users steps when another user is connected 
