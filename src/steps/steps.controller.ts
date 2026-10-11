@@ -46,4 +46,9 @@ async syncSteps(@Request() req:any, @Body() body: SyncStepsDto) {
     const d = date || new Date().toISOString().split('T')[0];
     return this.stepsService.getPeerSteps(req.user.id, targetUserId, d);
   }
+  @Get('health')
+health() {
+    return { status: 'ok' };
 }
+}
+

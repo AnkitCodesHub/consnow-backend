@@ -110,10 +110,12 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
       where: { userId: targetUserId, date },
     });
 
- // If no sync received in 5 minutes, force inactive
+ // If no sync received in 2 minutes, force inactive
 const isStale = record?.updatedAt && 
     (Date.now() - new Date(record.updatedAt).getTime() > 2 * 60 * 1000);
 
+
+// if no last active data then show the most recent data 
     const lastActiveAt = record?.lastActiveAt
     ?? (await this.stepsRepository.findOne({
         where: { userId: targetUserId, lastActiveAt: Not(IsNull()) },
