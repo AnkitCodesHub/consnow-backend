@@ -22,9 +22,9 @@ export class ActivityService {
     return now;
   }
 
-  async recordLock(userId: string): Promise<void> {
-    await this.lastUnlockRepo.upsert({ userId, isLocked: true }, ['userId']);
-  }
+ async recordLock(userId: string): Promise<void> {
+    await this.lastUnlockRepo.update({ userId }, { isLocked: true });
+}
 
   async getPeerActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean }> {
     const record = await this.lastUnlockRepo.findOne({ where: { userId } });
