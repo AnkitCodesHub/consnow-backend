@@ -12,9 +12,8 @@ export class ActivityController {
 
   @Put('unlock')
   @UseGuards(JwtAuthGuard)
-//   records when the users phone is locked 
-  async reportUnlock(@Request() req: { user: { userId: string } }) {
-    const userId = req.user.userId;
+  async reportUnlock(@Request() req: { user: { id: string } }) {
+    const userId: string = req.user.id;
     const unlockedAt = await this.activityService.recordUnlock(userId);
     const peerIds = await this.activityService.getPeerIds(userId);
     this.activityGateway.emitUnlockToPeers(peerIds, userId, unlockedAt);
@@ -23,8 +22,8 @@ export class ActivityController {
 
   @Put('lock')
   @UseGuards(JwtAuthGuard)
-  async reportLock(@Request() req: { user: { userId: string } }) {
-    const userId = req.user.userId;
+  async reportLock(@Request() req: { user: { id: string } }) {
+    const userId: string = req.user.id;
     await this.activityService.recordLock(userId);
     const peerIds = await this.activityService.getPeerIds(userId);
     this.activityGateway.emitLockToPeers(peerIds, userId);
@@ -33,9 +32,8 @@ export class ActivityController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-//   retrieves the activity info of currently authenticated user 
-  async getMyActivity(@Request() req: { user: { userId: string } }) {
-    const activity = await this.activityService.getMyActivity(req.user.userId);
+  async getMyActivity(@Request() req: { user: { id: string } }) {
+    const activity = await this.activityService.getMyActivity(req.user.id);
     return {
       unlockedAt: activity.unlockedAt?.toISOString() ?? null,
       isLocked: activity.isLocked,
