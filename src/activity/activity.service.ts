@@ -41,9 +41,9 @@ export class ActivityService {
    * Called when user locks their phone (screen off).
    * Only flips the isLocked flag — does not touch unlockedAt or lastHeartbeatAt.
    */
-  async recordLock(userId: string): Promise<void> {
-    await this.lastUnlockRepo.update({ userId }, { isLocked: true });
-  }
+ async recordLock(userId: string, occurredAt?: number): Promise<void> {
+  await this.lastUnlockRepo.update({ userId }, { isLocked: true });
+}
 
   /**
    * Called every 60s by Android while the phone is unlocked.
