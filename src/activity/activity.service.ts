@@ -4,6 +4,15 @@ import { Repository } from 'typeorm';
 import { LastUnlock } from '../entities/last-unlock.entity';
 import { Connection, ConnectionStatus } from '../entities/connection.entity';
 
+/**
+ * ActivityService — handles all lock/unlock state and online presence logic.
+ *
+ * How online detection works:
+ *   - Android sends a heartbeat ping every 60s while the phone is unlocked
+ *   - We store the last heartbeat time in lastHeartbeatAt
+ *   - If no heartbeat for 90s, we consider the user offline
+ *   - Peer sees "offline" instead of "unlocked" when heartbeat goes stale
+ */
 @Injectable()
 export class ActivityService {
   constructor(
@@ -13,31 +22,78 @@ export class ActivityService {
     private readonly connectionRepo: Repository<Connection>,
   ) {}
 
-  async recordUnlock(userId: string): Promise<Date> {
-    const now = new Date();
+  /**
+   * Called when user unlocks their phone.
+   * Upserts the unlock record — creates it if first time, updates if exists.
+   * Accepts occurredAt from Android so the timestamp is accurate even if
+   * the request was queued offline and sent later.
+   */
+  async recordUnlock(userId: string, occurredAt?: number): Promise<Date> {
+    const unlockTime = occurredAt ? new Date(occurredAt) : new Date();
     await this.lastUnlockRepo.upsert(
-      { userId, unlockedAt: now, isLocked: false },
+      { userId, unlockedAt: unlockTime, isLocked: false },
       ['userId'],
     );
-    return now;
+    return unlockTime;
   }
 
- async recordLock(userId: string): Promise<void> {
+  /**
+   * Called when user locks their phone (screen off).
+   * Only flips the isLocked flag — does not touch unlockedAt or lastHeartbeatAt.
+   */
+  async recordLock(userId: string): Promise<void> {
     await this.lastUnlockRepo.update({ userId }, { isLocked: true });
-}
+  }
 
-  async getPeerActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean }> {
+  /**
+   * Called every 60s by Android while the phone is unlocked.
+   * Keeps lastHeartbeatAt fresh so peers know the user is still online.
+   * If this stops updating, getPeerActivity will return isOnline: false after 90s.
+   */
+  async recordHeartbeat(userId: string): Promise<void> {
+    await this.lastUnlockRepo.update({ userId }, { lastHeartbeatAt: new Date() });
+  }
+
+  /**
+   * Returns a peer's lock status and whether they are currently online.
+   *
+   * isOnline logic:
+   *   - true  → lastHeartbeatAt exists and is less than 90s old
+   *   - false → no heartbeat ever, OR last heartbeat was more than 90s ago
+   *
+   * This means if a user goes offline while unlocked, their peer will see
+   * them as offline after 90s instead of stuck as "unlocked" forever.
+   */
+  async getPeerActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean }> {
     const record = await this.lastUnlockRepo.findOne({ where: { userId } });
+
+    // No record at all — user has never unlocked, treat as locked + offline
+    if (!record) return { unlockedAt: null, isLocked: true, isOnline: false };
+
+    const STALE_MS = 90_000; // 90 seconds
+    const heartbeatStale =
+      !record.lastHeartbeatAt ||
+      Date.now() - record.lastHeartbeatAt.getTime() > STALE_MS;
+
     return {
-      unlockedAt: record?.unlockedAt ?? null,
-      isLocked: record?.isLocked ?? true,
+      unlockedAt: record.unlockedAt ?? null,
+      isLocked: record.isLocked,
+      isOnline: !heartbeatStale,
     };
   }
 
-  async getMyActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean }> {
+  /**
+   * Same as getPeerActivity but for the calling user themselves.
+   * Used by GET /activity/me on HomeScreen.
+   */
+  async getMyActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean }> {
     return this.getPeerActivity(userId);
   }
 
+  /**
+   * Returns all userIds that are actively connected to the given user.
+   * Used to find who to notify via WebSocket on lock/unlock events.
+   */
   async getPeerIds(userId: string): Promise<string[]> {
     const connections = await this.connectionRepo.find({
       where: [

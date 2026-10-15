@@ -10,4 +10,6 @@ export class LastUnlock {
 
   @Column({ default: true })
   isLocked: boolean;
+  @Column({ type: 'timestamptz', nullable: true })
+  lastHeartbeatAt: Date | null;
 }
