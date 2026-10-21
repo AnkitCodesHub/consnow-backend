@@ -62,8 +62,8 @@ export class ActivityGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
     }
   }
-  emitLockToPeers(peerIds: string[], fromUserId: string) {
-  const payload = { userId: fromUserId };
+  emitLockToPeers(peerIds: string[], fromUserId: string, lockedAt: Date) {
+  const payload = { userId: fromUserId, lockedAt: lockedAt.toISOString() };
   for (const peerId of peerIds) {
     const sockets = this.userToSockets.get(peerId);
     if (sockets) {

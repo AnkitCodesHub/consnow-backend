@@ -25,14 +25,16 @@ export class ActivityController {
    * Stores unlock timestamp in DB and emits peer_unlocked WebSocket event to all peers.
    * Body: { occurredAt: number } — epoch millis from Android (used as actual unlock time)
    */
-  @Put('unlock')
+ @Put('unlock')
   @UseGuards(JwtAuthGuard)
   async reportUnlock(@Request() req: { user: { id: string }; body: { occurredAt?: number } }) {
     const userId: string = req.user.id;
-    const unlockedAt = await this.activityService.recordUnlock(userId, req.body?.occurredAt);
-    const peerIds = await this.activityService.getPeerIds(userId);
-    this.activityGateway.emitUnlockToPeers(peerIds, userId, unlockedAt);
-    return { success: true, unlockedAt };
+    const { at, applied } = await this.activityService.recordUnlock(userId, req.body?.occurredAt);
+    if (applied) {
+      const peerIds = await this.activityService.getPeerIds(userId);
+      this.activityGateway.emitUnlockToPeers(peerIds, userId, at);
+    }
+    return { success: true, unlockedAt: at };
   }
 
   /**
@@ -40,13 +42,15 @@ export class ActivityController {
    * Updates isLocked flag in DB and emits peer_locked WebSocket event to all peers.
    * Body: { occurredAt: number } — epoch millis from Android
    */
-  @Put('lock')
+ @Put('lock')
   @UseGuards(JwtAuthGuard)
   async reportLock(@Request() req: { user: { id: string }; body: { occurredAt?: number } }) {
     const userId: string = req.user.id;
-    await this.activityService.recordLock(userId, req.body?.occurredAt);
-    const peerIds = await this.activityService.getPeerIds(userId);
-    this.activityGateway.emitLockToPeers(peerIds, userId);
+    const { at, applied } = await this.activityService.recordLock(userId, req.body?.occurredAt);
+    if (applied) {
+      const peerIds = await this.activityService.getPeerIds(userId);
+      this.activityGateway.emitLockToPeers(peerIds, userId, at);
+    }
     return { success: true };
   }
 

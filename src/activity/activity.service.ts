@@ -28,21 +28,26 @@ export class ActivityService {
    * Accepts occurredAt from Android so the timestamp is accurate even if
    * the request was queued offline and sent later.
    */
-  async recordUnlock(userId: string, occurredAt?: number): Promise<Date> {
-    const unlockTime = occurredAt ? new Date(occurredAt) : new Date();
-    await this.lastUnlockRepo.upsert(
-      { userId, unlockedAt: unlockTime, isLocked: false },
-      ['userId'],
-    );
-    return unlockTime;
-  }
+  private async applyTransition(userId: string, isLocked: boolean, occurredAt?: number) {
+  const at = occurredAt ? new Date(occurredAt) : new Date();
+  const rows = await this.lastUnlockRepo.query(
+    `INSERT INTO last_unlock ("userId", "unlockedAt", "isLocked")
+     VALUES ($1, $2, $3)
+     ON CONFLICT ("userId") DO UPDATE
+       SET "unlockedAt" = EXCLUDED."unlockedAt", "isLocked" = EXCLUDED."isLocked"
+       WHERE last_unlock."unlockedAt" <= EXCLUDED."unlockedAt"
+     RETURNING "userId"`,
+    [userId, at, isLocked],
+  );
+  return { at, applied: rows.length > 0 };
+}
 
-  /**
-   * Called when user locks their phone (screen off).
-   * Only flips the isLocked flag — does not touch unlockedAt or lastHeartbeatAt.
-   */
- async recordLock(userId: string, occurredAt?: number): Promise<void> {
-  await this.lastUnlockRepo.update({ userId }, { isLocked: true });
+async recordUnlock(userId: string, occurredAt?: number) {
+  return this.applyTransition(userId, false, occurredAt);
+}
+
+async recordLock(userId: string, occurredAt?: number) {
+  return this.applyTransition(userId, true, occurredAt);
 }
 
   /**
