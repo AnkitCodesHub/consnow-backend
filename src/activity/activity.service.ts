@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LastUnlock } from '../entities/last-unlock.entity';
 import { Connection, ConnectionStatus } from '../entities/connection.entity';
-
+import { User } from '../entities/user.entity';
 /**
  * ActivityService — handles all lock/unlock state and online presence logic.
  *
@@ -107,5 +107,15 @@ async recordLock(userId: string, occurredAt?: number) {
       ],
     });
     return connections.map(c => (c.userAId === userId ? c.userBId : c.userAId));
+  }
+  async userExists(userId: string): Promise<boolean> {
+    return (await this.userRepo.count({ where: { id: userId } })) > 0;
+  }
+
+  /** Peers allowed to receive live updates: active connections, only while sharing is on. */
+  async getStepBroadcastTargets(userId: string): Promise<string[]> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || !user.sharingEnabled) return [];
+    return this.getPeerIds(userId);
   }
 }

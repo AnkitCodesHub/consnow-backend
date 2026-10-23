@@ -1,15 +1,19 @@
 import {
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  WebSocketGateway,
-  WebSocketServer,
+  ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit,
+  SubscribeMessage, WebSocketGateway, WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Server, Socket } from 'socket.io';
+import { StepsService } from '../steps/steps.service';
+import { ActivityService } from './activity.service';
+import { ActivityState, LiveActivityDto, LiveStepsDto } from './dto/realtime.dto';
 
 @WebSocketGateway({ cors: { origin: '*' } })
-export class ActivityGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ActivityGateway //edited on 22/10/2026
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   @WebSocketServer()
   server: Server;
 

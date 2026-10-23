@@ -13,5 +13,6 @@ import { ConnectionsModule } from '../connections/connections.module';
   ],
   controllers: [StepsController],
   providers: [StepsService],
+  exports: [StepsService],
 })
 export class StepsModule {}
