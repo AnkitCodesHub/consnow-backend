@@ -24,7 +24,7 @@ export class AuthController {
   // add inside the class, after the login method added on 26/10/2026
 @Delete('me')
 @UseGuards(JwtAuthGuard)
-async deleteAccount(@Request() req) {
+async deleteAccount(@Request() req: any) {
   await this.authService.deleteAccount(req.user.sub);
   return { message: 'Account deleted successfully' };
 }

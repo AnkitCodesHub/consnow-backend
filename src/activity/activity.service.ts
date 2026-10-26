@@ -20,6 +20,8 @@ export class ActivityService {
     private readonly lastUnlockRepo: Repository<LastUnlock>,
     @InjectRepository(Connection)
     private readonly connectionRepo: Repository<Connection>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   /**

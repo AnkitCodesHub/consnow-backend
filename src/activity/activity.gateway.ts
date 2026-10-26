@@ -66,15 +66,24 @@ export class ActivityGateway //edited on 22/10/2026
       }
     }
   }
-  emitLockToPeers(peerIds: string[], fromUserId: string, lockedAt: Date) {
-  const payload = { userId: fromUserId, lockedAt: lockedAt.toISOString() };
-  for (const peerId of peerIds) {
-    const sockets = this.userToSockets.get(peerId);
-    if (sockets) {
-      for (const socketId of sockets) {
-        this.server.to(socketId).emit('peer_locked', payload);
+     emitLockToPeers(peerIds: string[], fromUserId: string, lockedAt: Date) {
+    const payload = { userId: fromUserId, lockedAt: lockedAt.toISOString() };
+    for (const peerId of peerIds) {
+      const sockets = this.userToSockets.get(peerId);
+      if (sockets) {
+        for (const socketId of sockets) {
+          this.server.to(socketId).emit('peer_locked', payload);
+        }
       }
     }
   }
-}
+
+  afterInit(server: Server) {
+    this.logger.debug('WebSocket gateway initialized');
+  }
+
+  onModuleDestroy() {
+    this.userToSockets.clear();
+    this.socketToUser.clear();
+  }
 }
