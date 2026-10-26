@@ -100,4 +100,22 @@ export class AuthService {
       sharingEnabled: user.sharingEnabled,
     };
   }
+  //Added an option to delete the user account on the app Date 26/10/2026
+  async deleteAccount(userId: string) {
+  // Delete in order: steps and connections first (foreign keys), then user
+  await this.userRepository.manager.transaction(async (manager) => {
+    await manager.query(
+      `DELETE FROM daily_steps WHERE user_id = $1`, [userId]
+    );
+    await manager.query(
+      `DELETE FROM last_unlocks WHERE user_id = $1`, [userId]
+    );
+    await manager.query(
+      `DELETE FROM connections WHERE user_a_id = $1 OR user_b_id = $1`, [userId]
+    );
+    await manager.query(
+      `DELETE FROM users WHERE id = $1`, [userId]
+    );
+  });
+}
 }
