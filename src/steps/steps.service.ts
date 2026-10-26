@@ -31,10 +31,8 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
     if (existing) { 
       if (dto.stepCount >= existing.stepCount) {
         existing.stepCount = dto.stepCount;
-        existing.isActive = dto.isActive ?? false;
-        if (dto.isActive) {
-          existing.lastActiveAt = new Date();
-        }
+existing.isActive = dto.isActive ?? false;
+existing.lastActiveAt = new Date();  // always update when steps increase
         return this.stepsRepository.save(existing);
       }
       return existing;
@@ -45,7 +43,7 @@ async syncSteps(userId: string, dto: SyncStepsDto) {
       date: dto.date,
       stepCount: dto.stepCount,
       isActive: dto.isActive ?? false,
-      ...(dto.isActive ? { lastActiveAt: new Date() } : {}),
+    lastActiveAt: new Date(),
     });
 
     return this.stepsRepository.save(record);
