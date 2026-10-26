@@ -1,10 +1,10 @@
 // Edited 26/10/2026
 // Ankit Raj
 
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Delete, Request, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';import { Delete, Request, UseGuards } from '@nestjs/common'; //Added on 26/10/2026
+import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -25,7 +25,7 @@ export class AuthController {
 @Delete('me')
 @UseGuards(JwtAuthGuard)
 async deleteAccount(@Request() req: any) {
-  await this.authService.deleteAccount(req.user.sub);
+  await this.authService.deleteAccount(req.user.id);
   return { message: 'Account deleted successfully' };
 }
 }

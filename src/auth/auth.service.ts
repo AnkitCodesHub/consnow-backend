@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-} from '@nestjs/common';
+//edited on 26/10/2026 by ankit pandey
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -10,6 +6,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { Injectable, ConflictException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+
 
 @Injectable()
 export class AuthService {
@@ -101,21 +99,18 @@ export class AuthService {
     };
   }
   //Added an option to delete the user account on the app Date 26/10/2026
-  async deleteAccount(userId: string) {
-  // Delete in order: steps and connections first (foreign keys), then user
+async deleteAccount(userId: string) {
+  if (!userId) throw new UnauthorizedException();
+
+  const user = await this.userRepository.findOne({ where: { id: userId } });
+  if (!user) throw new NotFoundException('Account not found');
+
   await this.userRepository.manager.transaction(async (manager) => {
-    await manager.query(
-      `DELETE FROM daily_steps WHERE user_id = $1`, [userId]
-    );
-    await manager.query(
-      `DELETE FROM last_unlocks WHERE user_id = $1`, [userId]
-    );
-    await manager.query(
-      `DELETE FROM connections WHERE user_a_id = $1 OR user_b_id = $1`, [userId]
-    );
-    await manager.query(
-      `DELETE FROM users WHERE id = $1`, [userId]
-    );
+    await manager.query(`DELETE FROM daily_steps WHERE user_id = $1`, [userId]);
+    await manager.query(`DELETE FROM last_unlock WHERE "userId" = $1`, [userId]);
+    await manager.query(`DELETE FROM connections WHERE user_a_id = $1 OR user_b_id = $1`, [userId]);
+    await manager.query(`DELETE FROM users WHERE id = $1`, [userId]);
   });
 }
 }
+
