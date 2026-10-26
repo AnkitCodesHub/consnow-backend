@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete your Consnow account</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --surface: #fff; --fg: #1a1a1e; --muted: #6b6b78; --border: #e2e2e8;
+    --accent: #e03434; --accent-bg: #fdf1f1; --accent-border: #f5c0c0;
+    --ok: #1a7a4a; --ok-bg: #f0faf5; --ok-border: #b3dfc9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f12; --surface: #1c1c22; --fg: #e8e8f0; --muted: #8888a0; --border: #2e2e3a;
+      --accent: #f05555; --accent-bg: #2a1515; --accent-border: #6a2020;
+      --ok: #4ade80; --ok-bg: #0d2018; --ok-border: #1a4a30;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; justify-content: center; padding: 48px 16px 64px;
+  }
+  .wrap { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 24px; }
+  .head { text-align: center; }
+  .head h1 { font-size: 22px; }
+  .head p { color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; display: flex; flex-direction: column; gap: 18px;
+  }
+  .card h2 { font-size: 17px; }
+  .info { font-size: 14px; color: var(--muted); }
+  .info ul { padding-left: 18px; margin-top: 4px; }
+  .warn {
+    background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent);
+    border-radius: 8px; padding: 12px 14px; font-size: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 14px; font-weight: 500; color: var(--muted); }
+  input[type=email], input[type=password] {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 11px 14px; font: inherit; font-size: 15px; color: var(--fg); width: 100%; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); cursor: pointer; }
+  .check input { margin-top: 4px; }
+  button {
+    width: 100%; padding: 13px; border: none; border-radius: 8px; font: inherit; font-weight: 600;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .error { color: var(--accent); font-size: 14px; }
+  .done {
+    background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: 12px;
+    padding: 32px 28px; text-align: center;
+  }
+  .done h2 { color: var(--ok); font-size: 18px; margin-bottom: 8px; }
+  .done p { color: var(--muted); font-size: 14px; }
+  .foot { text-align: center; font-size: 13px; color: var(--muted); }
+  .foot a { color: inherit; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Consnow</h1>
+    <p>Delete your account</p>
+  </div>
+
+  <form class="card" id="form" novalidate>
+    <h2>Sign in to delete your account</h2>
+
+    <div class="info">
+      <strong>What gets deleted</strong>
+      <ul>
+        <li>Your profile, email and login</li>
+        <li>All step counts and activity history</li>
+        <li>All your connections</li>
+      </ul>
+      Deletion happens immediately. We keep no copy of this data.
+    </div>
+
+    <div class="warn"><strong>This is permanent.</strong> Your account cannot be recovered.</div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="email" required>
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="confirm">
+      I understand my account and all its data will be permanently deleted.
+    </label>
+
+    <p class="error" id="error" hidden></p>
+
+    <button type="submit" id="btn" disabled>Delete my account</button>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <h2>Your account has been deleted</h2>
+    <p>All your Consnow data has been removed. You can uninstall the app.</p>
+  </div>
+
+  <div class="foot">
+    You can also delete your account in the app: Settings → Delete Account.<br>
+    Forgot your password? Email <a href="mailto:support@consnow.app?subject=Delete%20my%20account">support@consnow.app</a>
+    from your account email and we'll delete it within 7 days.
+  </div>
+</div>
+
+<script>
+  // Served from the backend itself, so relative URLs hit the same API (no CORS).
+  const API = '';
+
+  const form = document.getElementById('form');
+  const email = document.getElementById('email');
+  const password = document.getElementById('password');
+  const confirmBox = document.getElementById('confirm');
+  const btn = document.getElementById('btn');
+  const errorEl = document.getElementById('error');
+
+  function refresh() {
+    btn.disabled = !(email.checkValidity() && password.value && confirmBox.checked);
+  }
+  [email, password].forEach(el => el.addEventListener('input', refresh));
+  confirmBox.addEventListener('change', refresh);
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Delete my account';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.hidden = true;
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+
+    try {
+      const login = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.value.trim(), password: password.value }),
+      });
+      if (login.status === 401 || login.status === 400) return showError('Email or password is incorrect.');
+      if (!login.ok) return showError('Something went wrong. Please try again.');
+
+      const data = await login.json();
+      const token = data.accessToken || data.access_token || data.token;
+      if (!token) return showError('Something went wrong. Please try again.');
+
+      const del = await fetch(API + '/auth/me', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!del.ok) return showError('Could not delete your account. Please email support@consnow.app.');
+
+      form.hidden = true;
+      document.getElementById('done').hidden = false;
+    } catch {
+      showError('Network error. Check your connection and try again.');
+    }
+  });
+</script>
+</body>
+</html>
