@@ -82,6 +82,11 @@ export class AuthService {
     };
   }
 
+  /** Sliding session: a still-valid token is swapped for a fresh one. */
+  refresh(user: User) {
+    return { token: this.generateToken(user) };
+  }
+
   private generateToken(user: User): string {
     return this.jwtService.sign({
       sub: user.id,

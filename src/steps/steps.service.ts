@@ -11,6 +11,9 @@ import { ConnectionsService } from '../connections/connections.service';
 import { SyncStepsDto } from './dto/sync-steps.dto';
 import {Not, IsNull } from 'typeorm';
 
+// Steps older than this can't mark the user as currently walking.
+const SYNC_ACTIVE_WINDOW_MS = 90_000;
+
 @Injectable()
 export class StepsService {
   constructor(
@@ -22,31 +25,43 @@ export class StepsService {
 
     private readonly connectionsService: ConnectionsService,
   ) {}
-// saves and updates current user's steps 
-async syncSteps(userId: string, dto: SyncStepsDto) {
-    const existing = await this.stepsRepository.findOne({
-      where: { userId, date: dto.date },
-    });
+// saves and updates current user's steps
+  /**
+   * PUT /steps/sync — one atomic upsert (same rule as the realtime path):
+   *  - count never goes down: a late/out-of-order request with a lower count is a no-op
+   *  - lastActiveAt = when the steps were taken on the device (lastStepAt), not when the
+   *    request arrived, so an offline backlog doesn't make the user look active "just now"
+   *  - isActive is only accepted if those steps are recent
+   */
+  async syncSteps(userId: string, dto: SyncStepsDto) {
+    const now = Date.now();
+    const stepAtMs = dto.lastStepAt != null ? Math.min(dto.lastStepAt, now) : now;
+    const isActive = (dto.isActive ?? false) && now - stepAtMs < SYNC_ACTIVE_WINDOW_MS;
 
-    if (existing) { 
-      if (dto.stepCount >= existing.stepCount) {
-        existing.stepCount = dto.stepCount;
-existing.isActive = dto.isActive ?? false;
-existing.lastActiveAt = new Date();  // always update when steps increase
-        return this.stepsRepository.save(existing);
-      }
-      return existing;
-    }
+    const rows = await this.stepsRepository.query(
+      `INSERT INTO daily_steps (user_id, date, step_count, is_active, last_active_at, updated_at)
+       VALUES ($1, $2, $3, $4::boolean,
+               CASE WHEN $3::int > 0 THEN to_timestamp($5::double precision / 1000) ELSE NULL END,
+               now())
+       ON CONFLICT (user_id, date) DO UPDATE
+         SET step_count = EXCLUDED.step_count,
+             is_active = EXCLUDED.is_active,
+             last_active_at = CASE
+               WHEN EXCLUDED.step_count > daily_steps.step_count
+                 THEN GREATEST(daily_steps.last_active_at, EXCLUDED.last_active_at)
+               ELSE daily_steps.last_active_at
+             END,
+             updated_at = now()
+         WHERE EXCLUDED.step_count >= daily_steps.step_count
+       RETURNING id, user_id AS "userId", date, step_count AS "stepCount",
+                 is_active AS "isActive", last_active_at AS "lastActiveAt", updated_at AS "updatedAt"`,
+      [userId, dto.date, dto.stepCount, isActive, stepAtMs],
+    );
+    if (rows.length > 0) return { ...rows[0], applied: true };
 
-    const record = this.stepsRepository.create({
-      userId,
-      date: dto.date,
-      stepCount: dto.stepCount,
-      isActive: dto.isActive ?? false,
-    lastActiveAt: new Date(),
-    });
-
-    return this.stepsRepository.save(record);
+    // Stale (lower) count: ignored. Return the authoritative row.
+    const current = await this.stepsRepository.findOne({ where: { userId, date: dto.date } });
+    return { ...current, applied: false };
   }
   // edited on 21/10/2026
     /** Realtime step write: one atomic upsert, never lowers the count, equal count = no-op. */

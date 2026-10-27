@@ -21,6 +21,14 @@ export class AuthController {
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
+  /** Returns a new token for a still-valid one, so active users never get logged out */
+  @Post('refresh')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  refresh(@Request() req: any) {
+    return this.authService.refresh(req.user);
+  }
+
   // add inside the class, after the login method added on 26/10/2026
 @Delete('me')
 @UseGuards(JwtAuthGuard)
