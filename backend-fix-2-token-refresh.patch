@@ -1,0 +1,65 @@
+From 0dae13ee0c492448dedca81f82a2186597bdaca9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 28 Oct 2026 00:16:20 +0530
+Subject: [PATCH] Fix stuck app after long offline: expired session, socket
+ token, reboot step count
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Mi9ypH9oLaXdbWP3CiTU1x
+---
+ src/auth/auth.controller.ts | 8 ++++++++
+ src/auth/auth.module.ts     | 2 +-
+ src/auth/auth.service.ts    | 5 +++++
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/src/auth/auth.controller.ts b/src/auth/auth.controller.ts
+index 27bf3e5..7e07a5b 100644
+--- a/src/auth/auth.controller.ts
++++ b/src/auth/auth.controller.ts
+@@ -21,6 +21,14 @@ export class AuthController {
+   async login(@Body() dto: LoginDto) {
+     return this.authService.login(dto);
+   }
++  /** Returns a new token for a still-valid one, so active users never get logged out */
++  @Post('refresh')
++  @UseGuards(JwtAuthGuard)
++  @HttpCode(HttpStatus.OK)
++  refresh(@Request() req: any) {
++    return this.authService.refresh(req.user);
++  }
++
+   // add inside the class, after the login method added on 26/10/2026
+ @Delete('me')
+ @UseGuards(JwtAuthGuard)
+diff --git a/src/auth/auth.module.ts b/src/auth/auth.module.ts
+index ea1ded4..e42a0bd 100644
+--- a/src/auth/auth.module.ts
++++ b/src/auth/auth.module.ts
+@@ -14,7 +14,7 @@ import { getJwtSecret } from './jwt-secret';
+     PassportModule.register({ defaultStrategy: 'jwt' }),
+     JwtModule.register({
+             secret: getJwtSecret(),
+-      signOptions: { expiresIn: process.env.JWT_EXPIRATION || '7d' },
++      signOptions: { expiresIn: process.env.JWT_EXPIRATION || '30d' },
+     }),
+   ],
+   controllers: [AuthController],
+diff --git a/src/auth/auth.service.ts b/src/auth/auth.service.ts
+index 0f371c5..6b46f48 100644
+--- a/src/auth/auth.service.ts
++++ b/src/auth/auth.service.ts
+@@ -82,6 +82,11 @@ export class AuthService {
+     };
+   }
+ 
++  /** Sliding session: a still-valid token is swapped for a fresh one. */
++  refresh(user: User) {
++    return { token: this.generateToken(user) };
++  }
++
+   private generateToken(user: User): string {
+     return this.jwtService.sign({
+       sub: user.id,
+-- 
+2.43.0
+
