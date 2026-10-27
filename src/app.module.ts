@@ -6,34 +6,21 @@ import { AuthModule } from './auth/auth.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { StepsModule } from './steps/steps.module';
 import { ActivityModule } from './activity/activity.module';
-import { User } from './entities/user.entity';
-import { Connection } from './entities/connection.entity';
-import { DailySteps } from './entities/daily-steps.entity';
-import { LastUnlock } from './entities/last-unlock.entity';
+import { databaseOptions } from './database.config';
 
 @Module({
   imports: [
+    // Schema is managed by migrations, not rewritten on every deploy (see database.config.ts)
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      ...(process.env.DATABASE_URL
-        ? {
-            url: process.env.DATABASE_URL,
-            ssl: { rejectUnauthorized: false },
-          }
-        : {
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432', 10),
-            username: process.env.DB_USERNAME || 'postgres',
-            password: process.env.DB_PASSWORD || 'postgres',
-            database: process.env.DB_NAME || 'stepshare',
-          }),
-      entities: [User, Connection, DailySteps, LastUnlock],  // ← added LastUnlock
-      synchronize: true,
-    }),                    // ← TypeOrmModule.forRoot closes here
+      ...databaseOptions(),
+      migrationsRun: true,
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 120,
+        // per client IP; one walking phone alone sends ~90 req/min, and a family on
+        // the same Wi-Fi shares one IP
+        limit: 600,
       },
     ]),
     AuthModule,
