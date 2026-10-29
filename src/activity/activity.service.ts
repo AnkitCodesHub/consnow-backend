@@ -79,7 +79,7 @@ async recordLock(userId: string, occurredAt?: number) {
     // No record at all — user has never unlocked, treat as locked + offline
     if (!record) return { unlockedAt: null, isLocked: true, isOnline: false };
 
-    const STALE_MS = 90_000; // 90 seconds
+    const STALE_MS = 180_000; // 3 minutes (heartbeat every 60s, allows for Android delaying it while the screen is off)
     const heartbeatStale =
       !record.lastHeartbeatAt ||
       Date.now() - record.lastHeartbeatAt.getTime() > STALE_MS;
