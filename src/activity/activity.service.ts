@@ -31,13 +31,15 @@ export class ActivityService {
    * the request was queued offline and sent later.
    */
   private async applyTransition(userId: string, isLocked: boolean, occurredAt?: number) {
-  const at = occurredAt ? new Date(occurredAt) : new Date();
+  const now = Date.now();
+  const at = new Date(occurredAt ? Math.min(occurredAt, now) : now);
   const rows = await this.lastUnlockRepo.query(
     `INSERT INTO last_unlock ("userId", "unlockedAt", "isLocked")
      VALUES ($1, $2, $3)
      ON CONFLICT ("userId") DO UPDATE
        SET "unlockedAt" = EXCLUDED."unlockedAt", "isLocked" = EXCLUDED."isLocked"
-       WHERE last_unlock."unlockedAt" <= EXCLUDED."unlockedAt"
+              WHERE last_unlock."unlockedAt" <= EXCLUDED."unlockedAt"
+          OR last_unlock."unlockedAt" > NOW()
      RETURNING "userId"`,
     [userId, at, isLocked],
   );
