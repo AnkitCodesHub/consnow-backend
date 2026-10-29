@@ -14,6 +14,17 @@ import {Not, IsNull } from 'typeorm';
 // Steps older than this can't mark the user as currently walking.
 const SYNC_ACTIVE_WINDOW_MS = 90_000;
 
+/**
+ * True if `date` (YYYY-MM-DD) hasn't started anywhere on Earth yet.
+ * The furthest-ahead time zone is UTC+14, so the latest real date right now is
+ * the UTC date of (now + 14h). Anything after that came from a phone whose clock
+ * was set forward, and must not create a row for a day that hasn't happened.
+ */
+export function isFutureDate(date: string, nowMs: number = Date.now()): boolean {
+  const latestRealDate = new Date(nowMs + 14 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return date > latestRealDate;
+}
+
 @Injectable()
 export class StepsService {
   constructor(
@@ -35,6 +46,10 @@ export class StepsService {
    */
   async syncSteps(userId: string, dto: SyncStepsDto) {
     const now = Date.now();
+    // Phone clock set forward: answer OK (so the app stops retrying) but store nothing.
+    if (isFutureDate(dto.date, now)) {
+      return { userId, date: dto.date, stepCount: 0, applied: false, ignored: 'future_date' };
+    }
     const stepAtMs = dto.lastStepAt != null ? Math.min(dto.lastStepAt, now) : now;
     const isActive = (dto.isActive ?? false) && now - stepAtMs < SYNC_ACTIVE_WINDOW_MS;
 
@@ -67,6 +82,7 @@ export class StepsService {
     /** Realtime step write: one atomic upsert, never lowers the count, equal count = no-op. */
   async applyLiveSteps(userId: string, date: string, stepCount: number):
     Promise<{ applied: boolean; stepCount: number; updatedAt: Date | null }> {
+    if (isFutureDate(date)) return { applied: false, stepCount: 0, updatedAt: null };
     const rows: { stepCount: number; updatedAt: Date }[] = await this.stepsRepository.query(
       `INSERT INTO daily_steps (user_id, date, step_count, is_active, last_active_at, updated_at)
        VALUES ($1, $2, $3, false, CASE WHEN $3::int > 0 THEN now() ELSE NULL END, now())
@@ -86,6 +102,7 @@ export class StepsService {
   /** Realtime activity write into the existing is_active / last_active_at columns. */
   async applyLiveActivity(userId: string, date: string, isActive: boolean):
     Promise<{ isActive: boolean; lastActiveAt: Date | null; updatedAt: Date }> {
+    if (isFutureDate(date)) return { isActive: false, lastActiveAt: null, updatedAt: new Date() };
     const rows = await this.stepsRepository.query(
       `INSERT INTO daily_steps (user_id, date, step_count, is_active, last_active_at, updated_at)
        VALUES ($1, $2, 0, $3::boolean, CASE WHEN $3::boolean THEN now() ELSE NULL END, now())
