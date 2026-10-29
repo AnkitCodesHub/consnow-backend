@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Put, Request, UseGuards } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Param, Put, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActivityGateway } from './activity.gateway';
 import { ActivityService } from './activity.service';
@@ -88,7 +88,11 @@ export class ActivityController {
    */
   @Get('peer/:userId')
   @UseGuards(JwtAuthGuard)
-  async getPeerActivity(@Param('userId') userId: string) {
+  async getPeerActivity(@Request() req: { user: { id: string } }, @Param('userId') userId: string) {
+    // Consent check: only actively connected friends may see this user's activity.
+    if (!(await this.activityService.areConnected(req.user.id, userId))) {
+      throw new ForbiddenException('No active connection with this user');
+    }
     const activity = await this.activityService.getPeerActivity(userId);
     return {
       userId,

@@ -32,7 +32,9 @@ export class ActivityService {
    */
   private async applyTransition(userId: string, isLocked: boolean, occurredAt?: number) {
   const now = Date.now();
-  const at = new Date(occurredAt ? Math.min(occurredAt, now) : now);
+  // Ignore missing/garbage/non-positive client times; never accept a future time.
+  const t = typeof occurredAt === 'number' && Number.isFinite(occurredAt) && occurredAt > 0 ? occurredAt : now;
+  const at = new Date(Math.min(t, now));
   const rows = await this.lastUnlockRepo.query(
     `INSERT INTO last_unlock ("userId", "unlockedAt", "isLocked")
      VALUES ($1, $2, $3)
@@ -112,6 +114,18 @@ async recordLock(userId: string, occurredAt?: number) {
     });
     return connections.map(c => (c.userAId === userId ? c.userBId : c.userAId));
   }
+  /** True only if the two users have an ACTIVE connection (either direction). */
+  async areConnected(callerId: string, targetId: string): Promise<boolean> {
+    if (!callerId || !targetId || callerId === targetId) return false;
+    const count = await this.connectionRepo.count({
+      where: [
+        { userAId: callerId, userBId: targetId, status: ConnectionStatus.ACTIVE },
+        { userAId: targetId, userBId: callerId, status: ConnectionStatus.ACTIVE },
+      ],
+    });
+    return count > 0;
+  }
+
   async userExists(userId: string): Promise<boolean> {
     return (await this.userRepo.count({ where: { id: userId } })) > 0;
   }
