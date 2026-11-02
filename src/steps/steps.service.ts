@@ -14,6 +14,17 @@ import { LessThanOrEqual } from 'typeorm';
 // Steps older than this can't mark the user as currently walking.
 const SYNC_ACTIVE_WINDOW_MS = 90_000;
 
+// No step sync for this long => a viewer is shown "not walking" even if is_active is still
+// true (walker's phone died / lost signal mid-walk). Active walkers sync about once a second.
+export const PEER_STALE_MS = 30_000;
+
+/** Fired when a user's walking state flips (start or stop). Not fired on repeat syncs. */
+export interface ActivityChange {
+  userId: string;
+  isActive: boolean;
+  lastActiveAt: string | null; // ISO
+}
+
 /**
  * True if `date` (YYYY-MM-DD) hasn't started anywhere on Earth yet.
  * The furthest-ahead time zone is UTC+14, so the latest real date right now is
@@ -41,6 +52,25 @@ export class StepsService {
 
     private readonly connectionsService: ConnectionsService,
   ) {}
+
+  private activityListener?: (change: ActivityChange) => unknown;
+
+  /** The WebSocket gateway registers here to push walking changes to friends. */
+  setActivityListener(fn: (change: ActivityChange) => unknown) {
+    this.activityListener = fn;
+  }
+
+  private notifyActivityChange(change: ActivityChange) {
+    if (!this.activityListener) return;
+    try {
+      // Fire and forget: a slow or failing push must never delay or fail the sync request.
+      void Promise.resolve(this.activityListener(change)).catch((err) =>
+        console.warn('activity push failed:', err?.message ?? err),
+      );
+    } catch (err: any) {
+      console.warn('activity push failed:', err?.message ?? err);
+    }
+  }
 // saves and updates current user's steps
   /**
    * PUT /steps/sync — one atomic upsert (same rule as the realtime path):
@@ -59,7 +89,8 @@ export class StepsService {
     const isActive = (dto.isActive ?? false) && now - stepAtMs < SYNC_ACTIVE_WINDOW_MS;
 
     const rows = await this.stepsRepository.query(
-      `INSERT INTO daily_steps (user_id, date, step_count, is_active, last_active_at, updated_at)
+      `WITH prev AS (SELECT is_active FROM daily_steps WHERE user_id = $1 AND date = $2)
+       INSERT INTO daily_steps (user_id, date, step_count, is_active, last_active_at, updated_at)
        VALUES ($1, $2, $3, $4::boolean,
                CASE WHEN $3::int > 0 THEN to_timestamp($5::double precision / 1000) ELSE NULL END,
                now())
@@ -74,10 +105,22 @@ export class StepsService {
              ),
              updated_at = now()
        RETURNING id, user_id AS "userId", date, step_count AS "stepCount",
-                 is_active AS "isActive", last_active_at AS "lastActiveAt", updated_at AS "updatedAt"`,
+                 is_active AS "isActive", last_active_at AS "lastActiveAt", updated_at AS "updatedAt",
+                 (SELECT is_active FROM prev) AS "wasActive"`,
       [userId, dto.date, dto.stepCount, isActive, stepAtMs],
     );
-    if (rows.length > 0) return { ...rows[0], applied: true };
+    if (rows.length > 0) {
+      const { wasActive, ...saved } = rows[0];
+      // Push only on a real start/stop, not on the every-second syncs while walking.
+      if (Boolean(wasActive) !== Boolean(saved.isActive)) {
+        this.notifyActivityChange({
+          userId,
+          isActive: Boolean(saved.isActive),
+          lastActiveAt: saved.lastActiveAt ? new Date(saved.lastActiveAt).toISOString() : null,
+        });
+      }
+      return { ...saved, applied: true };
+    }
 
     // Stale (lower) count: ignored. Return the authoritative row.
     const current = await this.stepsRepository.findOne({ where: { userId, date: dto.date } });
@@ -181,9 +224,9 @@ export class StepsService {
       where: { userId: targetUserId, date },
     });
 
- // If no sync received in 2 minutes, force inactive
-const isStale = record?.updatedAt && 
-    (Date.now() - new Date(record.updatedAt).getTime() > 2 * 60 * 1000);
+ // If no sync received within PEER_STALE_MS, force inactive
+const isStale = record?.updatedAt &&
+    (Date.now() - new Date(record.updatedAt).getTime() > PEER_STALE_MS);
 
 
 // if no last active data then show the most recent data 

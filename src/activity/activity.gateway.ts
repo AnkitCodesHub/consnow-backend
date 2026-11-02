@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { StepsService } from '../steps/steps.service';
 import { ActivityService } from './activity.service';
 import { ActivityState, LiveActivityDto, LiveStepsDto } from './dto/realtime.dto';
+import type { ActivityChange } from '../steps/steps.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class ActivityGateway //edited on 22/10/2026
@@ -22,7 +23,19 @@ export class ActivityGateway //edited on 22/10/2026
   private readonly userToSockets = new Map<string, Set<string>>();
   private readonly socketToUser = new Map<string, string>();
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly stepsService: StepsService,
+    private readonly activityService: ActivityService,
+  ) {
+    // Walking start/stop (detected in StepsService.syncSteps) -> push to friends.
+    // Targets come from getStepBroadcastTargets: active connections only, and nobody
+    // at all when the walker has turned sharing off.
+    this.stepsService.setActivityListener(async (change) => {
+      const peerIds = await this.activityService.getStepBroadcastTargets(change.userId);
+      this.emitActivityToPeers(peerIds, change);
+    });
+  }
 
   handleConnection(client: Socket) {
     const token = client.handshake.auth?.token as string;
@@ -73,6 +86,17 @@ export class ActivityGateway //edited on 22/10/2026
       if (sockets) {
         for (const socketId of sockets) {
           this.server.to(socketId).emit('peer_locked', payload);
+        }
+      }
+    }
+  }
+
+  emitActivityToPeers(peerIds: string[], change: ActivityChange) {
+    for (const peerId of peerIds) {
+      const sockets = this.userToSockets.get(peerId);
+      if (sockets) {
+        for (const socketId of sockets) {
+          this.server.to(socketId).emit('peer_activity', change);
         }
       }
     }
