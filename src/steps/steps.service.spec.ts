@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { StepsService, isFutureDate } from './steps.service';
+import { StepsService, isFutureDate, notFuture } from './steps.service';
 
 // 30 Oct 2026, 00:20 in India = 29 Oct 18:50 UTC (the moment the bug was seen)
 const NOW = Date.parse('2026-10-29T18:50:00.000Z');
@@ -65,5 +65,46 @@ describe('realtime writers also refuse future dates', () => {
     const { service, queries } = makeService();
     await service.applyLiveActivity('u1', '2026-10-31', true);
     assert.equal(queries.length, 0);
+  });
+});
+
+describe('syncSteps: a lower count never blocks timing (reinstall bug)', () => {
+  test('no WHERE guard on the upsert; count still never goes down', async () => {
+    const { service, queries } = makeService();
+    await service.syncSteps('u1', { date: '2026-10-30', stepCount: 3, isActive: true, lastStepAt: NOW } as any);
+    const sql = queries[0].sql;
+    assert.ok(!/WHERE\s+EXCLUDED\.step_count/.test(sql), 'a lower count must not skip the whole update');
+    assert.match(sql, /step_count\s*=\s*GREATEST\(daily_steps\.step_count, EXCLUDED\.step_count\)/);
+    assert.match(sql, /is_active\s*=\s*EXCLUDED\.is_active/);
+  });
+
+  test('a future last_active_at stored earlier is dropped', async () => {
+    const { service, queries } = makeService();
+    await service.syncSteps('u1', { date: '2026-10-30', stepCount: 3, isActive: false, lastStepAt: NOW } as any);
+    assert.match(queries[0].sql, /daily_steps\.last_active_at > now\(\) THEN NULL/);
+  });
+});
+
+describe('notFuture', () => {
+  test('past time is kept', () => { const d = new Date(NOW - 1000); assert.equal(notFuture(d, NOW), d); });
+  test('future time is dropped', () => assert.equal(notFuture(new Date(NOW + 60_000), NOW), null));
+  test('null stays null', () => assert.equal(notFuture(null, NOW), null));
+});
+
+describe('getMySteps ignores a future "last moved"', () => {
+  test('falls back to the latest real time', async () => {
+    const past = new Date(NOW - 3_600_000);
+    const calls: any[] = [];
+    const repo: any = {
+      findOne: async (opts: any) => {
+        calls.push(opts);
+        return calls.length === 1
+          ? { stepCount: 40, lastActiveAt: new Date(NOW + 86_400_000) } // today's row, future time
+          : { lastActiveAt: past };
+      },
+    };
+    const r = await new StepsService(repo, {} as any, {} as any).getMySteps('u1', '2026-10-30');
+    assert.equal(r.lastActiveAt, past);
+    assert.equal(calls[1].where.lastActiveAt.type, 'lessThanOrEqual');
   });
 });

@@ -9,7 +9,7 @@ import { DailySteps } from '../entities/daily-steps.entity';
 import { User } from '../entities/user.entity';
 import { ConnectionsService } from '../connections/connections.service';
 import { SyncStepsDto } from './dto/sync-steps.dto';
-import {Not, IsNull } from 'typeorm';
+import { LessThanOrEqual } from 'typeorm';
 
 // Steps older than this can't mark the user as currently walking.
 const SYNC_ACTIVE_WINDOW_MS = 90_000;
@@ -23,6 +23,11 @@ const SYNC_ACTIVE_WINDOW_MS = 90_000;
 export function isFutureDate(date: string, nowMs: number = Date.now()): boolean {
   const latestRealDate = new Date(nowMs + 14 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return date > latestRealDate;
+}
+
+/** Drops a time that lies in the future (written while a phone clock was set ahead). */
+export function notFuture(d: Date | null | undefined, nowMs: number = Date.now()): Date | null {
+  return d && new Date(d).getTime() <= nowMs ? d : null;
 }
 
 @Injectable()
@@ -59,15 +64,15 @@ export class StepsService {
                CASE WHEN $3::int > 0 THEN to_timestamp($5::double precision / 1000) ELSE NULL END,
                now())
        ON CONFLICT (user_id, date) DO UPDATE
-         SET step_count = EXCLUDED.step_count,
-             is_active = EXCLUDED.is_active,
-             last_active_at = CASE
-               WHEN EXCLUDED.step_count > daily_steps.step_count
-                 THEN GREATEST(daily_steps.last_active_at, EXCLUDED.last_active_at)
-               ELSE daily_steps.last_active_at
-             END,
+         SET step_count    = GREATEST(daily_steps.step_count, EXCLUDED.step_count),
+             is_active     = EXCLUDED.is_active,
+             -- A stored time in the future (from before the clock guards) is dropped so it
+             -- can't pin "last moved" forever. GREATEST ignores NULLs.
+             last_active_at = GREATEST(
+               CASE WHEN daily_steps.last_active_at > now() THEN NULL ELSE daily_steps.last_active_at END,
+               EXCLUDED.last_active_at
+             ),
              updated_at = now()
-         WHERE EXCLUDED.step_count >= daily_steps.step_count
        RETURNING id, user_id AS "userId", date, step_count AS "stepCount",
                  is_active AS "isActive", last_active_at AS "lastActiveAt", updated_at AS "updatedAt"`,
       [userId, dto.date, dto.stepCount, isActive, stepAtMs],
@@ -122,9 +127,9 @@ export class StepsService {
       where: { userId, date },
     });
      // If today has no record yet, fetch most recent record across all dates
-  const lastActiveAt = record?.lastActiveAt
+  const lastActiveAt = notFuture(record?.lastActiveAt)
     ?? (await this.stepsRepository.findOne({
-        where: { userId, lastActiveAt: Not(IsNull()) },
+        where: { userId, lastActiveAt: LessThanOrEqual(new Date()) }, // skip future times
         order: { lastActiveAt: 'DESC' }
       }))?.lastActiveAt
     ?? null;
@@ -182,9 +187,9 @@ const isStale = record?.updatedAt &&
 
 
 // if no last active data then show the most recent data 
-    const lastActiveAt = record?.lastActiveAt
+    const lastActiveAt = notFuture(record?.lastActiveAt)
     ?? (await this.stepsRepository.findOne({
-        where: { userId: targetUserId, lastActiveAt: Not(IsNull()) },
+        where: { userId: targetUserId, lastActiveAt: LessThanOrEqual(new Date()) }, // skip future times
         order: { lastActiveAt: 'DESC' }
     }))?.lastActiveAt
     ?? null;
