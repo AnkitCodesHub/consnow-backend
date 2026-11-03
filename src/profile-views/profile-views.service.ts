@@ -4,7 +4,7 @@ import { LessThan, Repository } from 'typeorm';
 import { ProfileView } from '../entities/profile-view.entity';
 import { ConnectionsService } from '../connections/connections.service';
 
-export const REPEAT_WINDOW_MS = 5 * 60_000; // same friend re-opening within 5 min is one view
+export const REPEAT_WINDOW_MS = 60_000; // same friend re-opening within 1 min is one view
 export const RETENTION_MS = 48 * 3600_000; // rows older than this are deleted
 export const MAX_LISTED = 5;
 const PURGE_EVERY_MS = 3600_000;
@@ -41,12 +41,11 @@ export class ProfileViewsService {
     return { recorded: true };
   }
 
-  /** The owner's most recent distinct viewers (max 5), newest first. */
+  /** The owner's 5 most recent opens (one row per open, the same friend can repeat), newest first. */
   async listViewers(ownerId: string, sinceIso?: string) {
     const since = this.resolveSince(sinceIso, Date.now());
     const rows: any[] = await this.views.query(
-      `SELECT v.viewer_id AS "viewerId", u.name AS "name",
-              MAX(v.viewed_at) AS "viewedAt", COUNT(*)::int AS "count"
+      `SELECT v.viewer_id AS "viewerId", u.name AS "name", v.viewed_at AS "viewedAt"
          FROM profile_views v
          JOIN users u ON u.id = v.viewer_id
         WHERE v.owner_id = $1 AND v.viewed_at >= $2
@@ -55,8 +54,7 @@ export class ProfileViewsService {
              WHERE c.status = 'active'
                AND ((c.user_a_id = v.viewer_id AND c.user_b_id = v.owner_id)
                  OR (c.user_a_id = v.owner_id AND c.user_b_id = v.viewer_id)))
-        GROUP BY v.viewer_id, u.name
-        ORDER BY MAX(v.viewed_at) DESC
+        ORDER BY v.viewed_at DESC
         LIMIT 5`,
       [ownerId, since],
     );
@@ -64,7 +62,6 @@ export class ProfileViewsService {
       viewerId: r.viewerId,
       name: r.name,
       viewedAt: new Date(r.viewedAt).toISOString(),
-      count: Number(r.count),
     }));
   }
 

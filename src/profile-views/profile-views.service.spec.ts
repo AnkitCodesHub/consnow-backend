@@ -48,14 +48,14 @@ describe('recordView', () => {
     assert.equal(saved.length, 0);
   });
 
-  test('a second open within 5 minutes is not counted', async () => {
-    const { service, saved } = make({ last: new Date(NOW - 4 * 60_000) });
+  test('a second open within 1 minute is not counted', async () => {
+    const { service, saved } = make({ last: new Date(NOW - 50_000) });
     const r = await service.recordView('viewer', 'owner');
     assert.deepEqual(r, { recorded: false, reason: 'recent' });
     assert.equal(saved.length, 0);
   });
 
-  test('an open after more than 5 minutes is counted again', async () => {
+  test('an open after more than 1 minute is counted again', async () => {
     const { service, saved } = make({ last: new Date(NOW - REPEAT_WINDOW_MS - 1_000) });
     const r = await service.recordView('viewer', 'owner');
     assert.equal(r.recorded, true);
@@ -73,17 +73,21 @@ describe('recordView', () => {
 });
 
 describe('listViewers', () => {
-  const row = (name: string, minsAgo: number, count = 1) => ({
-    viewerId: name, name, viewedAt: new Date(NOW - minsAgo * 60_000), count,
+  const row = (name: string, minsAgo: number) => ({
+    viewerId: name, name, viewedAt: new Date(NOW - minsAgo * 60_000),
   });
 
-  test('returns name, time and count, newest first as the query gives them', async () => {
-    const { service } = make({ rows: [row('Ankit', 5, 3), row('Ravi', 7)] });
+  test('returns one entry per open: the same friend can appear twice', async () => {
+    const { service } = make({ rows: [row('Ankit', 1), row('Ravi', 2), row('Ankit', 3)] });
     const out = await service.listViewers('owner');
-    assert.equal(out.length, 2);
-    assert.equal(out[0].name, 'Ankit');
-    assert.equal(out[0].count, 3);
-    assert.equal(out[0].viewedAt, new Date(NOW - 5 * 60_000).toISOString());
+    assert.deepEqual(out.map((o) => o.name), ['Ankit', 'Ravi', 'Ankit']);
+    assert.equal(out[0].viewedAt, new Date(NOW - 1 * 60_000).toISOString());
+  });
+
+  test('the query lists individual opens (no grouping)', async () => {
+    const { service, queries } = make();
+    await service.listViewers('owner');
+    assert.doesNotMatch(queries[0].sql, /GROUP BY/);
   });
 
   test('never returns more than 5, and asks the database for at most 5', async () => {
