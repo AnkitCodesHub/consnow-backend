@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { StepsModule } from './steps/steps.module';
 import { ActivityModule } from './activity/activity.module';
+import { ProfileViewsModule } from './profile-views/profile-views.module';
 import { databaseOptions } from './database.config';
 
 @Module({
@@ -27,6 +28,7 @@ import { databaseOptions } from './database.config';
     ConnectionsModule,
     StepsModule,
     ActivityModule,        // ← correctly placed in imports array
+    ProfileViewsModule,
   ],
   providers: [
     {
