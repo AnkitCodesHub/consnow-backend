@@ -114,6 +114,7 @@ async deleteAccount(userId: string) {
     await manager.query(`DELETE FROM daily_steps WHERE user_id = $1`, [userId]);
     await manager.query(`DELETE FROM last_unlock WHERE "userId" = $1`, [userId]);
     await manager.query(`DELETE FROM connections WHERE user_a_id = $1 OR user_b_id = $1`, [userId]);
+    await manager.query(`DELETE FROM connection_requests WHERE from_user_id = $1 OR to_user_id = $1`, [userId]);
     await manager.query(`DELETE FROM users WHERE id = $1`, [userId]);
   });
 }

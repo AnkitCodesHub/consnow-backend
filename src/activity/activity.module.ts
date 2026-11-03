@@ -8,6 +8,7 @@ import { ActivityGateway } from './activity.gateway';
 import { ActivityService } from './activity.service';
 import { User } from '../entities/user.entity';
 import { StepsModule } from '../steps/steps.module';
+import { ConnectionsModule } from '../connections/connections.module';
 import { getJwtSecret } from '../auth/jwt-secret';
 
 @Module({
@@ -15,6 +16,7 @@ import { getJwtSecret } from '../auth/jwt-secret';
     TypeOrmModule.forFeature([LastUnlock, Connection, User]),
         JwtModule.register({ secret: getJwtSecret() }),
     StepsModule,
+    ConnectionsModule,
   ],
   controllers: [ActivityController],
   providers: [ActivityService, ActivityGateway],

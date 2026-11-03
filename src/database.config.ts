@@ -4,6 +4,7 @@ import { Connection } from './entities/connection.entity';
 import { DailySteps } from './entities/daily-steps.entity';
 import { LastUnlock } from './entities/last-unlock.entity';
 import { ProfileView } from './entities/profile-view.entity';
+import { ConnectionRequest } from './entities/connection-request.entity';
 
 /**
  * One DB config for both the app and the migration CLI.
@@ -28,7 +29,7 @@ export function databaseOptions(): DataSourceOptions {
   return {
     type: 'postgres',
     ...connection,
-    entities: [User, Connection, DailySteps, LastUnlock, ProfileView],
+    entities: [User, Connection, DailySteps, LastUnlock, ProfileView, ConnectionRequest],
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
     synchronize: process.env.DB_SYNCHRONIZE === 'true',
   };

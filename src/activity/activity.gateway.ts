@@ -9,6 +9,7 @@ import { validate } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 import { StepsService } from '../steps/steps.service';
 import { ActivityService } from './activity.service';
+import { ConnectionsService } from '../connections/connections.service';
 import { ActivityState, LiveActivityDto, LiveStepsDto } from './dto/realtime.dto';
 import type { ActivityChange } from '../steps/steps.service';
 
@@ -27,7 +28,19 @@ export class ActivityGateway //edited on 22/10/2026
     private readonly jwtService: JwtService,
     private readonly stepsService: StepsService,
     private readonly activityService: ActivityService,
+    private readonly connectionsService?: ConnectionsService,
   ) {
+    // Disconnect / connect / request changes -> tell that user's phones right away so the
+    // friend row flips state within a second. The app reloads its list on this event.
+    this.connectionsService?.onEvent((e) => {
+      this.emitToUser(e.userId, 'connection_changed', {
+        peerId: e.peerId,
+        type: e.type,
+        requestId: e.requestId ?? null,
+        peerName: e.peerName ?? null,
+      });
+    });
+
     // Walking start/stop (detected in StepsService.syncSteps) -> push to friends.
     // Targets come from getStepBroadcastTargets: active connections only, and nobody
     // at all when the walker has turned sharing off.
@@ -88,6 +101,14 @@ export class ActivityGateway //edited on 22/10/2026
           this.server.to(socketId).emit('peer_locked', payload);
         }
       }
+    }
+  }
+
+  emitToUser(userId: string, event: string, payload: unknown) {
+    const sockets = this.userToSockets.get(userId);
+    if (!sockets) return;
+    for (const socketId of sockets) {
+      this.server.to(socketId).emit(event, payload);
     }
   }
 

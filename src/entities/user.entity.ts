@@ -29,6 +29,10 @@ export class User {
   @Column({ name: 'sharing_enabled', default: true })
   sharingEnabled: boolean;
 
+  /** Firebase Cloud Messaging token of the user's phone (for connect-request pushes). */
+  @Column({ name: 'fcm_token', type: 'varchar', length: 512, nullable: true, select: false })
+  fcmToken: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

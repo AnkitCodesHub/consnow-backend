@@ -45,6 +45,13 @@ export class Connection {
   })
   status: ConnectionStatus;
 
+  /** Who tapped Disconnect (null while connected). Only they can Undo. */
+  @Column({ name: 'disconnected_by', type: 'uuid', nullable: true })
+  disconnectedBy: string | null;
+
+  @Column({ name: 'disconnected_at', type: 'timestamptz', nullable: true })
+  disconnectedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
