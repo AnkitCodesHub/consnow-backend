@@ -90,12 +90,12 @@ describe('listViewers', () => {
     assert.doesNotMatch(queries[0].sql, /GROUP BY/);
   });
 
-  test('never returns more than 5, and asks the database for at most 5', async () => {
+  test('never returns more than 3, and asks the database for at most 3', async () => {
     const rows = Array.from({ length: 8 }, (_, i) => row('F' + i, i + 1));
     const { service, queries } = make({ rows });
     const out = await service.listViewers('owner');
     assert.equal(out.length, MAX_LISTED);
-    assert.match(queries[0].sql, /LIMIT 5/);
+    assert.match(queries[0].sql, /LIMIT 3/);
   });
 
   test('only viewers who are still active connections are listed', async () => {

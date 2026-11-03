@@ -13,7 +13,7 @@ export class ProfileViewsController {
     return this.service.recordView(req.user.id, ownerId);
   }
 
-  /** Who opened MY profile recently (max 5). `since` = ISO start of the user's local day. */
+  /** Who opened MY profile recently (max 3). `since` = ISO start of the user's local day. */
   @Get()
   list(@Request() req: any, @Query('since') since?: string) {
     return this.service.listViewers(req.user.id, since);

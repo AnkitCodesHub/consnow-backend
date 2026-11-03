@@ -6,7 +6,7 @@ import { ConnectionsService } from '../connections/connections.service';
 
 export const REPEAT_WINDOW_MS = 60_000; // same friend re-opening within 1 min is one view
 export const RETENTION_MS = 48 * 3600_000; // rows older than this are deleted
-export const MAX_LISTED = 5;
+export const MAX_LISTED = 3;
 const PURGE_EVERY_MS = 3600_000;
 const DEFAULT_WINDOW_MS = 24 * 3600_000;
 
@@ -41,7 +41,7 @@ export class ProfileViewsService {
     return { recorded: true };
   }
 
-  /** The owner's 5 most recent opens (one row per open, the same friend can repeat), newest first. */
+  /** The owner's 3 most recent opens (one row per open, the same friend can repeat), newest first. */
   async listViewers(ownerId: string, sinceIso?: string) {
     const since = this.resolveSince(sinceIso, Date.now());
     const rows: any[] = await this.views.query(
@@ -55,7 +55,7 @@ export class ProfileViewsService {
                AND ((c.user_a_id = v.viewer_id AND c.user_b_id = v.owner_id)
                  OR (c.user_a_id = v.owner_id AND c.user_b_id = v.viewer_id)))
         ORDER BY v.viewed_at DESC
-        LIMIT 5`,
+        LIMIT 3`,
       [ownerId, since],
     );
     return rows.slice(0, MAX_LISTED).map((r) => ({
