@@ -83,7 +83,10 @@ export class WakeService {
         type: 'status_request',
       });
 
-      if (result.ok) return 'sent';
+      if (result.ok) {
+        this.logger.log(`APNs wake sent to ${ownerId} (${env}) apns-id=${result.apnsId ?? '?'}`);
+        return 'sent';
+      }
 
       if (result.tokenInvalid) {
         // App deleted or token from the other APNs environment: forget it.
@@ -99,7 +102,7 @@ export class WakeService {
         // Network trouble on our side: free the slot so the next profile open retries.
         await this.users.query(`UPDATE users SET last_wake_push_at = NULL WHERE id = $1`, [ownerId]);
       }
-      this.logger.warn(`APNs wake for ${ownerId} failed: ${result.status} ${result.reason}`);
+      this.logger.warn(`APNs wake for ${ownerId} failed: ${result.status} ${result.reason} apns-id=${result.apnsId ?? '?'}`);
       return 'failed';
     } catch (e: any) {
       this.logger.warn(`wake for ${ownerId} errored: ${e?.message}`);

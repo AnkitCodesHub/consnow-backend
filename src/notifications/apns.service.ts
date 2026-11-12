@@ -11,6 +11,8 @@ export interface ApnsResult {
   reason?: string;
   /** The token is dead (app deleted / wrong environment): stop using it. */
   tokenInvalid: boolean;
+  /** Apple's id for this push; look it up in the Push Notifications Console delivery log. */
+  apnsId?: string;
 }
 
 const HOSTS: Record<ApnsEnv, string> = {
@@ -166,6 +168,7 @@ export class ApnsService implements OnModuleDestroy {
       }
 
       let status = 0;
+      let apnsId: string | undefined;
       let text = '';
       req.setEncoding('utf8');
       req.setTimeout(REQUEST_TIMEOUT_MS, () => {
@@ -174,6 +177,7 @@ export class ApnsService implements OnModuleDestroy {
       });
       req.on('response', (h) => {
         status = Number(h[':status']) || 0;
+        apnsId = typeof h['apns-id'] === 'string' ? h['apns-id'] : undefined;
       });
       req.on('data', (chunk: string) => {
         text += chunk;
@@ -186,7 +190,7 @@ export class ApnsService implements OnModuleDestroy {
           reason = text || undefined;
         }
         if (status === 403 && reason === 'ExpiredProviderToken') this.jwt = null;
-        done({ ok: status === 200, status, reason, tokenInvalid: isInvalidTokenResponse(status, reason) });
+        done({ ok: status === 200, status, reason, tokenInvalid: isInvalidTokenResponse(status, reason), apnsId });
       });
       req.on('error', (e) => done({ ok: false, status, reason: e.message, tokenInvalid: false }));
       req.end(body);

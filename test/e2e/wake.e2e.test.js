@@ -468,5 +468,6 @@ test('Migration ApnsWake ran on the production-like database', async () => {
 test('Server logs: APNs enabled, no unexpected errors', async () => {
   const logs = h.apiLogs.join('');
   assert.ok(logs.includes('APNs enabled (topic com.consnow.ios)'), 'APNs enabled line');
+  assert.match(logs, /APNs wake sent to [0-9a-f-]{36} \((production|sandbox)\) apns-id=[0-9a-f-]{36}/, 'success is logged with the apns-id');
   assert.ok(!/ERROR \[(?!ExceptionsHandler\] (Forbidden|Unauthorized))/.test(logs.replace(/\x1b\[[0-9;]*m/g, '')) || true);
 });
