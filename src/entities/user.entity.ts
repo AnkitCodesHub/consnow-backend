@@ -33,6 +33,18 @@ export class User {
   @Column({ name: 'fcm_token', type: 'varchar', length: 512, nullable: true, select: false })
   fcmToken: string | null;
 
+  /** APNs device token of the user's iPhone, used to wake the app with a silent push. */
+  @Column({ name: 'apns_token', type: 'varchar', length: 200, nullable: true, select: false })
+  apnsToken: string | null;
+
+  /** 'sandbox' (Xcode builds) or 'production' (TestFlight / App Store). */
+  @Column({ name: 'apns_env', type: 'varchar', length: 16, nullable: true, select: false })
+  apnsEnv: string | null;
+
+  /** Last time we woke this iPhone (throttle). */
+  @Column({ name: 'last_wake_push_at', type: 'timestamptz', nullable: true, select: false })
+  lastWakePushAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

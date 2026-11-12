@@ -75,11 +75,13 @@ async recordLock(userId: string, occurredAt?: number) {
    * This means if a user goes offline while unlocked, their peer will see
    * them as offline after 90s instead of stuck as "unlocked" forever.
    */
-  async getPeerActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean }> {
+  async getPeerActivity(
+    userId: string,
+  ): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean; lastSeenAt: Date | null }> {
     const record = await this.lastUnlockRepo.findOne({ where: { userId } });
 
     // No record at all — user has never unlocked, treat as locked + offline
-    if (!record) return { unlockedAt: null, isLocked: true, isOnline: false };
+    if (!record) return { unlockedAt: null, isLocked: true, isOnline: false, lastSeenAt: null };
 
     const STALE_MS = 180_000; // 3 minutes (heartbeat every 60s, allows for Android delaying it while the screen is off)
     const heartbeatStale =
@@ -90,6 +92,9 @@ async recordLock(userId: string, occurredAt?: number) {
       unlockedAt: record.unlockedAt ?? null,
       isLocked: record.isLocked,
       isOnline: !heartbeatStale,
+      // When the phone last checked in. Lets apps show "updated 40 min ago" instead of
+      // presenting an old lock state as current (iPhones only report when awake).
+      lastSeenAt: record.lastHeartbeatAt ?? null,
     };
   }
 
@@ -97,7 +102,9 @@ async recordLock(userId: string, occurredAt?: number) {
    * Same as getPeerActivity but for the calling user themselves.
    * Used by GET /activity/me on HomeScreen.
    */
-  async getMyActivity(userId: string): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean }> {
+  async getMyActivity(
+    userId: string,
+  ): Promise<{ unlockedAt: Date | null; isLocked: boolean; isOnline: boolean; lastSeenAt: Date | null }> {
     return this.getPeerActivity(userId);
   }
 

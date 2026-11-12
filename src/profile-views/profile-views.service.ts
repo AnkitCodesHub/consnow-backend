@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { ProfileView } from '../entities/profile-view.entity';
 import { ConnectionsService } from '../connections/connections.service';
+import { WakeService } from '../notifications/wake.service';
 
 export const REPEAT_WINDOW_MS = 60_000; // same friend re-opening within 1 min is one view
 export const RETENTION_MS = 48 * 3600_000; // rows older than this are deleted
@@ -18,6 +19,7 @@ export class ProfileViewsService {
     @InjectRepository(ProfileView)
     private readonly views: Repository<ProfileView>,
     private readonly connections: ConnectionsService,
+    @Optional() private readonly wake?: WakeService,
   ) {}
 
   async recordView(viewerId: string, ownerId: string) {
@@ -26,6 +28,10 @@ export class ProfileViewsService {
     if (!(await this.connections.hasActiveConnection(viewerId, ownerId))) {
       throw new ForbiddenException('You are not connected to this user');
     }
+
+    // A friend is looking right now: if the owner is on an iPhone, wake it so it sends
+    // fresh steps / lock state. Fire-and-forget; never slows down or fails this request.
+    void this.wake?.wakeForProfileView(ownerId);
 
     const now = Date.now();
     const last = await this.views.findOne({

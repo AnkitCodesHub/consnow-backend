@@ -80,7 +80,15 @@ describe('online detection', () => {
   test('U7a: no row -> offline and locked', async () => {
     const { service } = makeService();
     const r = await service.getPeerActivity('u1');
-    assert.deepEqual(r, { unlockedAt: null, isLocked: true, isOnline: false });
+    assert.deepEqual(r, { unlockedAt: null, isLocked: true, isOnline: false, lastSeenAt: null });
+  });
+
+  test('lastSeenAt is the last heartbeat, so apps can show how old the lock state is', async () => {
+    const beat = new Date(NOW - 40 * 60_000);
+    const { service } = makeService({ record: { unlockedAt: new Date(NOW - 50 * 60_000), isLocked: false, lastHeartbeatAt: beat } });
+    const r = await service.getPeerActivity('u1');
+    assert.equal(r.isOnline, false);
+    assert.equal(r.lastSeenAt?.getTime(), beat.getTime());
   });
 
   test('U7b: row but no heartbeat ever -> offline', async () => {
