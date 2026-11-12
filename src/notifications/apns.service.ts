@@ -13,6 +13,8 @@ export interface ApnsResult {
   tokenInvalid: boolean;
   /** Apple's id for this push; look it up in the Push Notifications Console delivery log. */
   apnsId?: string;
+  /** Sandbox only: the id Apple's Push Notifications Console "Delivery Log" accepts. */
+  uniqueId?: string;
 }
 
 const HOSTS: Record<ApnsEnv, string> = {
@@ -169,6 +171,7 @@ export class ApnsService implements OnModuleDestroy {
 
       let status = 0;
       let apnsId: string | undefined;
+      let uniqueId: string | undefined;
       let text = '';
       req.setEncoding('utf8');
       req.setTimeout(REQUEST_TIMEOUT_MS, () => {
@@ -178,6 +181,7 @@ export class ApnsService implements OnModuleDestroy {
       req.on('response', (h) => {
         status = Number(h[':status']) || 0;
         apnsId = typeof h['apns-id'] === 'string' ? h['apns-id'] : undefined;
+        uniqueId = typeof h['apns-unique-id'] === 'string' ? h['apns-unique-id'] : undefined;
       });
       req.on('data', (chunk: string) => {
         text += chunk;
@@ -190,7 +194,7 @@ export class ApnsService implements OnModuleDestroy {
           reason = text || undefined;
         }
         if (status === 403 && reason === 'ExpiredProviderToken') this.jwt = null;
-        done({ ok: status === 200, status, reason, tokenInvalid: isInvalidTokenResponse(status, reason), apnsId });
+        done({ ok: status === 200, status, reason, tokenInvalid: isInvalidTokenResponse(status, reason), apnsId, uniqueId });
       });
       req.on('error', (e) => done({ ok: false, status, reason: e.message, tokenInvalid: false }));
       req.end(body);

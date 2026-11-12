@@ -84,7 +84,10 @@ export class WakeService {
       });
 
       if (result.ok) {
-        this.logger.log(`APNs wake sent to ${ownerId} (${env}) apns-id=${result.apnsId ?? '?'}`);
+        this.logger.log(
+          `APNs wake sent to ${ownerId} (${env}) apns-id=${result.apnsId ?? '?'}` +
+            (result.uniqueId ? ` apns-unique-id=${result.uniqueId}` : ''),
+        );
         return 'sent';
       }
 
