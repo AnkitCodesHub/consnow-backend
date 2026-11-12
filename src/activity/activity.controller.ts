@@ -78,6 +78,7 @@ export class ActivityController {
       unlockedAt: activity.unlockedAt?.toISOString() ?? null,
       isLocked: activity.isLocked,
       isOnline: activity.isOnline,
+      lastSeenAt: activity.lastSeenAt?.toISOString() ?? null,
     };
   }
 
@@ -99,6 +100,8 @@ export class ActivityController {
       unlockedAt: activity.unlockedAt?.toISOString() ?? null,
       isLocked: activity.isLocked,
       isOnline: activity.isOnline,
+      // When the phone last checked in, so apps can say "updated 40 min ago"
+      lastSeenAt: activity.lastSeenAt?.toISOString() ?? null,
     };
   }
 }

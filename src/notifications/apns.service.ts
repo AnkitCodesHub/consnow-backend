@@ -18,6 +18,11 @@ const HOSTS: Record<ApnsEnv, string> = {
   sandbox: 'https://api.sandbox.push.apple.com',
 };
 
+/** Testing only: send to another HTTP/2 server instead of Apple (e.g. http://127.0.0.1:9443). */
+export function apnsHost(env: ApnsEnv): string {
+  return process.env.APNS_HOST_OVERRIDE?.trim() || HOSTS[env];
+}
+
 /** Apple wants the provider JWT refreshed between 20 and 60 minutes. */
 const JWT_TTL_MS = 45 * 60_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -121,7 +126,7 @@ export class ApnsService implements OnModuleDestroy {
   private session(env: ApnsEnv): http2.ClientHttp2Session {
     const existing = this.sessions.get(env);
     if (existing && !existing.closed && !existing.destroyed) return existing;
-    const s = http2.connect(HOSTS[env]);
+    const s = http2.connect(apnsHost(env));
     s.on('error', (e) => this.logger.warn(`APNs ${env} connection error: ${e.message}`));
     s.on('close', () => {
       if (this.sessions.get(env) === s) this.sessions.delete(env);
